@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   cv_bridge
   tf2_eigen
+  message_filters
   sensor_msgs
   geometry_msgs
   nav_msgs

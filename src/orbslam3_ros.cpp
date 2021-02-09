@@ -44,7 +44,16 @@ ROSWrapper::ROSWrapper(const ros::NodeHandle& nh, const ros::NodeHandle& nhp)
   pathmsg_.header.frame_id = posemsg_.header.frame_id;
   truepathmsg_.header.frame_id = posemsg_.header.frame_id;
 
-  sub_img1_ = nh_.subscribe("img1", 1, &ROSWrapper::img1_cb, this);
+  if (sensor_ == 0) { // mono
+    sub_img1_ = nh_.subscribe("img1", 1, &ROSWrapper::img1_cb, this);
+  } else if (sensor_ == 1) { // stereo
+  } else if (sensor_ == 2) { // rgbd
+    smf_img_.subscribe(nh_, "img1", 1);
+    smf_depth_.subscribe(nh_, "depth", 1);
+    syncrgbd_.reset(new message_filters::Synchronizer<SyncPolicyRGBD>(SyncPolicyRGBD(100),
+      smf_img_, smf_depth_));
+    syncrgbd_->registerCallback(&ROSWrapper::rgbd_cb, this);
+  }
   // sub_img2_ = nh_.subscribe("img2", 1, &ROSWrapper::img2_cb, this);
   sub_gt_ = nh_.subscribe("truepose", 1, &ROSWrapper::truepose_cb, this);
 
@@ -64,12 +73,11 @@ void ROSWrapper::init_system()
   std::string vocfile, settingsfile;
   utils::getParamOrDie(nhp_, "vocab_file", vocfile);
   utils::getParamOrDie(nhp_, "settings_file", settingsfile);
-  int sensor;
-  utils::getParamOrDie(nhp_, "sensor", sensor);
+  utils::getParamOrDie(nhp_, "sensor", sensor_);
 
   // initialize the ORB_SLAM3 system
   static constexpr bool visualize = true;
-  const ORB_SLAM3::System::eSensor stype = static_cast<ORB_SLAM3::System::eSensor>(sensor);
+  const ORB_SLAM3::System::eSensor stype = static_cast<ORB_SLAM3::System::eSensor>(sensor_);
   slam_.reset(new ORB_SLAM3::System(vocfile, settingsfile, stype, visualize));
 }
 
@@ -151,6 +159,35 @@ void ROSWrapper::img1_cb(const sensor_msgs::ImageConstPtr& msg)
 
   // returns the pose of the map w.r.t camera
   cv::Mat Tcm = slam_->TrackMonocular(image, msg->header.stamp.toSec());
+
+  handle_tracking_results(Tcm);
+}
+
+// ----------------------------------------------------------------------------
+
+void ROSWrapper::rgbd_cb(const sensor_msgs::ImageConstPtr& imgmsg,
+  const sensor_msgs::ImageConstPtr& depthmsg)
+{
+  cv::Mat rgb;
+  try {
+    rgb = cv_bridge::toCvShare(imgmsg)->image;
+  } catch (cv_bridge::Exception& e) {
+    // ROS_ERROR("Could not convert from '%s' to 'mono8'.", _img->encoding.c_str());
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+
+  cv::Mat d;
+  try {
+    d = cv_bridge::toCvShare(depthmsg)->image;
+  } catch (cv_bridge::Exception& e) {
+    // ROS_ERROR("Could not convert from '%s' to 'mono8'.", _img->encoding.c_str());
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+
+  // returns the pose of the map w.r.t camera
+  cv::Mat Tcm = slam_->TrackRGBD(rgb, d, imgmsg->header.stamp.toSec());
 
   handle_tracking_results(Tcm);
 }

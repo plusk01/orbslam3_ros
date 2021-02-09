@@ -12,6 +12,9 @@
 #include <ros/ros.h>
 #include <tf2_eigen/tf2_eigen.h>
 
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
@@ -39,7 +42,16 @@ namespace orbslam3 {
     ros::Publisher pub_truepath_, pub_path_, pub_pose_;
     ros::ServiceServer srv_save_;
 
+    message_filters::Subscriber<sensor_msgs::Image> smf_img_, smf_depth_;
+
+    /// \brief Synchronization of RGBD topics
+    using SyncPolicyRGBD = message_filters::sync_policies::ApproximateTime<
+                          sensor_msgs::Image, sensor_msgs::Image>;
+    std::unique_ptr<message_filters::Synchronizer<SyncPolicyRGBD>> syncrgbd_;
+
+
     // \brief ORB_SLAM3 system
+    int sensor_; ///< mono=0, stereo=1, rgbd=2, imu+mono=3, imu+stereo=4
     std::unique_ptr<ORB_SLAM3::System> slam_;
 
     // \brief Tracking results
@@ -57,6 +69,7 @@ namespace orbslam3 {
     // \brief ROS Callbacks
     void truepose_cb(const geometry_msgs::PoseStamped& msg);
     void img1_cb(const sensor_msgs::ImageConstPtr& msg);
+    void rgbd_cb(const sensor_msgs::ImageConstPtr& imgmsg, const sensor_msgs::ImageConstPtr& depthmsg);
     bool save_cb(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
 
   };
