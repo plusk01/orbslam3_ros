@@ -11,4 +11,6 @@
 
     <remap from="/img1" to="/cam0/image_raw" />
   </node>
+
+  <node name="viz" pkg="rviz" type="rviz" args="-d $(find orbslam3_ros)/cfg/default.rviz" />
 </launch>
