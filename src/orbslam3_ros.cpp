@@ -42,12 +42,17 @@ ROSWrapper::ROSWrapper(const ros::NodeHandle& nh, const ros::NodeHandle& nhp)
   
   posemsg_.header.frame_id = "world";
   pathmsg_.header.frame_id = posemsg_.header.frame_id;
+  truepathmsg_.header.frame_id = posemsg_.header.frame_id;
 
   sub_img1_ = nh_.subscribe("img1", 1, &ROSWrapper::img1_cb, this);
   // sub_img2_ = nh_.subscribe("img2", 1, &ROSWrapper::img2_cb, this);
+  sub_gt_ = nh_.subscribe("truepose", 1, &ROSWrapper::truepose_cb, this);
 
+  pub_truepath_ = nh_.advertise<nav_msgs::Path>("truepath", 1);
   pub_path_ = nh_.advertise<nav_msgs::Path>("path", 1);
   pub_pose_ = nh_.advertise<geometry_msgs::PoseStamped>("pose", 1);
+
+  srv_save_ = nh_.advertiseService("save_traj_tum", &ROSWrapper::save_cb, this);
 }
 
 // ----------------------------------------------------------------------------
@@ -96,6 +101,43 @@ void ROSWrapper::handle_tracking_results(const cv::Mat& _Tcm)
 // ROS Callbacks
 // ----------------------------------------------------------------------------
 
+void ROSWrapper::truepose_cb(const geometry_msgs::PoseStamped& msg)
+{
+  static bool first = true;
+
+  // capture offset of pose w.r.t world on first msg
+  if (first) {
+    // first {truepose w.r.t original world} == {world w.r.t original world}
+    tf2::fromMsg(msg.pose, Toww_);
+    first = false;
+  }
+
+  Eigen::Affine3d Towp;
+  tf2::fromMsg(msg.pose, Towp);
+
+  // transform {truepose w.r.t original world} to {truepose w.r.t world}
+  Eigen::Affine3d Twp = Toww_.inverse() * Towp;
+
+  geometry_msgs::PoseStamped posemsg;
+  posemsg.header = truepathmsg_.header;
+  posemsg.header.stamp = ros::Time::now();
+  posemsg.pose = tf2::toMsg(Twp);
+
+  truepathmsg_.header.stamp = ros::Time::now();
+  truepathmsg_.poses.push_back(posemsg);
+
+  pub_truepath_.publish(truepathmsg_);
+}
+
+// ----------------------------------------------------------------------------
+
+// void ROSWrapper::truepose_cb(const geometry_msgs::PointStamped& msg)
+// {
+
+// }
+
+// ----------------------------------------------------------------------------
+
 void ROSWrapper::img1_cb(const sensor_msgs::ImageConstPtr& msg)
 {
   cv::Mat image;
@@ -111,6 +153,22 @@ void ROSWrapper::img1_cb(const sensor_msgs::ImageConstPtr& msg)
   cv::Mat Tcm = slam_->TrackMonocular(image, msg->header.stamp.toSec());
 
   handle_tracking_results(Tcm);
+}
+
+// ----------------------------------------------------------------------------
+
+bool ROSWrapper::save_cb(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
+{
+  const std::string fname_orbslam = "orbslam3_traj_tum.txt";
+  const std::string fname_truth = "truth_traj_tum.txt";
+
+  // save paths as TUM files for analysis
+  utils::saveTUMPath(fname_orbslam, pathmsg_);
+  utils::saveTUMPath(fname_truth, truepathmsg_);
+
+  res.success = true;
+  res.message = "Saved to ~/.ros/" + fname_orbslam + " and ~/.ros/" + fname_truth;
+  return true;
 }
 
 } // ns orbslam3

@@ -8,6 +8,7 @@ Panels:
         - /Status1
         - /Path1
         - /Pose1
+        - /Path2
       Splitter Ratio: 0.5
     Tree Height: 1056
   - Class: rviz/Selection
@@ -114,6 +115,29 @@ Visualization Manager:
       Topic: /pose
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 252; 233; 79
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /truepath
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -157,10 +181,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6053985953330994
+      Pitch: 0.650398850440979
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.8353960514068604
+      Yaw: 2.720399856567383
     Saved: ~
 Window Geometry:
   Displays:

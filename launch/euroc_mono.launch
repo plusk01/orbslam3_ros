@@ -9,7 +9,7 @@
     <param name="settings_file" value="$(find orbslam3_ros)/../ORB_SLAM3/Examples/Monocular/EuRoC.yaml" />
     <param name="sensor" value="0" /> <!-- mono=0, stereo=1, rgbd=2, imu+mono=3, imu+stereo=4-->
 
-    <remap from="/img1" to="/cam0/image_raw" />
+    <remap from="img1" to="/cam0/image_raw" />
   </node>
 
   <node name="viz" pkg="rviz" type="rviz" args="-d $(find orbslam3_ros)/cfg/default.rviz" />
