@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <arg name="bagpath" />
+
+  <node name="bagplay" pkg="rosbag" type="play" args="--pause $(arg bagpath) -s60" launch-prefix="xterm -hold -geometry 100x20 -e" />
+
+  <node name="mono" pkg="orbslam3_ros" type="orbslam3" output="screen">
+    <param name="vocab_file" value="$(find orbslam3_ros)/../ORB_SLAM3/Vocabulary/ORBvoc.txt" />
+    <param name="settings_file" value="$(find orbslam3_ros)/../ORB_SLAM3/Examples/Monocular-Inertial/EuRoC.yaml" />
+    <param name="sensor" value="3" /> <!-- mono=0, stereo=1, rgbd=2, imu+mono=3, imu+stereo=4-->
+
+    <remap from="img1" to="/cam0/image_raw" />
+    <remap from="imu" to="/imu0" />
+  </node>
+
+  <node name="viz" pkg="rviz" type="rviz" args="-d $(find orbslam3_ros)/cfg/default.rviz" />
+</launch>
