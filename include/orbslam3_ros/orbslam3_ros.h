@@ -48,12 +48,12 @@ namespace orbslam3 {
     ros::Publisher pub_truepath_, pub_path_, pub_pose_;
     ros::ServiceServer srv_save_;
 
-    message_filters::Subscriber<sensor_msgs::Image> smf_img_, smf_depth_;
+    message_filters::Subscriber<sensor_msgs::Image> smf_img1_, smf_img2_, smf_depth_;
 
     /// \brief Synchronization of RGBD topics
-    using SyncPolicyRGBD = message_filters::sync_policies::ApproximateTime<
+    using SyncPolicy = message_filters::sync_policies::ApproximateTime<
                           sensor_msgs::Image, sensor_msgs::Image>;
-    std::unique_ptr<message_filters::Synchronizer<SyncPolicyRGBD>> syncrgbd_;
+    std::unique_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
 
 
     // \brief ORB_SLAM3 system
@@ -87,6 +87,7 @@ namespace orbslam3 {
     void img1_cb(const sensor_msgs::ImageConstPtr& msg);
     void imu_cb(const sensor_msgs::ImuConstPtr& msg);
     void rgbd_cb(const sensor_msgs::ImageConstPtr& imgmsg, const sensor_msgs::ImageConstPtr& depthmsg);
+    void stereo_cb(const sensor_msgs::ImageConstPtr& leftmsg, const sensor_msgs::ImageConstPtr& rightmsg);
     bool save_cb(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
 
   };

@@ -25,7 +25,7 @@ ROSWrapper::ROSWrapper(const ros::NodeHandle& nh, const ros::NodeHandle& nhp)
   qcb = Eigen::AngleAxisd(0      , Eigen::Vector3d::UnitZ()) *
         Eigen::AngleAxisd(-M_PI/2, Eigen::Vector3d::UnitY()) *
         Eigen::AngleAxisd( M_PI/2, Eigen::Vector3d::UnitX());
-  // Tcb_.linear() = qcb.toRotationMatrix();
+  Tcb_.linear() = qcb.toRotationMatrix();
 
   // rotation of camera start pose (map origin) w.r.t ENU world
   // This is simply Tcb_.inverse()
@@ -34,7 +34,7 @@ ROSWrapper::ROSWrapper(const ros::NodeHandle& nh, const ros::NodeHandle& nhp)
   qwm = Eigen::AngleAxisd(-M_PI/2, Eigen::Vector3d::UnitZ()) *
         Eigen::AngleAxisd(0      , Eigen::Vector3d::UnitY()) *
         Eigen::AngleAxisd(-M_PI/2, Eigen::Vector3d::UnitX());
-  // Twm_.linear() = qwm.toRotationMatrix();
+  Twm_.linear() = qwm.toRotationMatrix();
 
   //
   // ROS communication
@@ -50,13 +50,18 @@ ROSWrapper::ROSWrapper(const ros::NodeHandle& nh, const ros::NodeHandle& nhp)
 
   } else if (sensor_ == 1) { // stereo
     // sub_img2_ = nh_.subscribe("img2", 1, &ROSWrapper::img2_cb, this);
+    smf_img1_.subscribe(nh_, "img1", 1);
+    smf_img2_.subscribe(nh_, "img2", 1);
+    sync_.reset(new message_filters::Synchronizer<SyncPolicy>(SyncPolicy(100),
+      smf_img1_, smf_img2_));
+    sync_->registerCallback(&ROSWrapper::stereo_cb, this);
   } else if (sensor_ == 2) { // rgbd
 
-    smf_img_.subscribe(nh_, "img1", 1);
+    smf_img1_.subscribe(nh_, "img1", 1);
     smf_depth_.subscribe(nh_, "depth", 1);
-    syncrgbd_.reset(new message_filters::Synchronizer<SyncPolicyRGBD>(SyncPolicyRGBD(100),
-      smf_img_, smf_depth_));
-    syncrgbd_->registerCallback(&ROSWrapper::rgbd_cb, this);
+    sync_.reset(new message_filters::Synchronizer<SyncPolicy>(SyncPolicy(100),
+      smf_img1_, smf_depth_));
+    sync_->registerCallback(&ROSWrapper::rgbd_cb, this);
 
   } else if (sensor_ == 3) { // imu+mono
 
@@ -76,7 +81,9 @@ ROSWrapper::ROSWrapper(const ros::NodeHandle& nh, const ros::NodeHandle& nhp)
 
   srv_save_ = nh_.advertiseService("save_traj_tum", &ROSWrapper::save_cb, this);
 
-  slamthread_ = std::thread{&ROSWrapper::slamsync, this};
+  if (sensor_ == 3) {
+    slamthread_ = std::thread{&ROSWrapper::slamsync, this};
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -300,6 +307,20 @@ void ROSWrapper::rgbd_cb(const sensor_msgs::ImageConstPtr& imgmsg,
   // cv::Mat Tcm = slam_->TrackRGBD(rgb, d, imgmsg->header.stamp.toSec());
 
   // handle_tracking_results(Tcm);
+}
+
+// ----------------------------------------------------------------------------
+
+void ROSWrapper::stereo_cb(const sensor_msgs::ImageConstPtr& leftmsg,
+  const sensor_msgs::ImageConstPtr& rightmsg)
+{
+  cv::Mat left = unwrap_image(leftmsg);
+  cv::Mat right = unwrap_image(rightmsg);
+
+  // returns the pose of the map w.r.t camera
+  cv::Mat Tcm = slam_->TrackStereo(left, right, leftmsg->header.stamp.toSec());
+
+  handle_tracking_results(Tcm);
 }
 
 // ----------------------------------------------------------------------------
